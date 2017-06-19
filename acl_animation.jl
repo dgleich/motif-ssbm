@@ -5,7 +5,7 @@ using DataStructures
 using Plots
 
 
-## Power method animation
+## ACL method animation
 # In power method steps, we saw that μ=0.6 gave good results for enough matvecs for
 # the motif matrix, but bad results for the edge case. (or not as clean).
 # Here, we'd like to animate these matvecs to see what's going on.
@@ -101,15 +101,20 @@ end
 m = 50
 k = 10
 p = 0.50
-μ=0.50
+μ=0.40
 q = μ*p/((1-μ)*(k-1))
 
 srand(1)
 A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
 M = (A*A).*(A)
+W = Motif.clique4_weighted(A)
+
 pyplot(size=(400,300))
-animate_acl(M,  "acl-motif-mu=0.5.gif", (0.00000001,0.0001))
+animate_acl(M,  "acl-motif-mu=0.4.gif", (0.00000001,0.0001))
 
 
 ##
-animate_acl(A, "acl-edges-mu=0.5.gif")
+animate_acl(A, "acl-edges-mu=0.4.gif")
+
+##
+animate_acl(W, "acl-clique4-mu=0.5.gif", (0.00000001,0.00001))

@@ -9,159 +9,78 @@ using Plots
 using Loess
 using LaTeXStrings
 
-## Conditioning measures and a sweep across $\mu$
 
-# Two little helpers
-zero_thresh(x, t) = x[x .>= t]
-abszero_thresh(x, t) = x[abs(x) .>= t]
-
-"""
-return a list of disconnected pieces
-"""
-function disconnected_nontrivial_pieces(A, x)
-  T = typeof(A)
-  map = strong_components_map(A)
-  rval = Vector{T}()
-  rval2 = Vector{typeof(x)}()
-  for c = 1:maximum(map)
-    filt = map .== c
-    if sum(filt) > 1
-      push!(rval, A[filt,filt])
-      push!(rval2, x[filt])
-    end
-  end
-  return rval, rval2
-end
-
-disconnected_nontrivial_pieces(A) = disconnected_nontrivial_pieces(A,zeros(size(A,1)))[1]
-
-function pseudo_cond(A)
-  vals = svdvals(A)
-  vals = vals[vals .>= 10*eps(1.0)]
-  return maximum(vals)/minimum(vals)
-end
-
-
-function disconnected_condition_num(A)
-  return maximum(map(X -> pseudo_cond(full(X)), disconnected_nontrivial_pieces(A)))
-end
-
-function connected_fiedler_condition_num(Acc)
-  f,lam2 = fiedler_vector(Acc)
-  d = vec(sum(Acc,1))
-  z = d.*f
-  return norm(f)*norm(z)/abs(dot(f,z)), lam2
-end
-
-function disconnected_fiedler_condition_num(A)
-  rvals = map(X -> connected_fiedler_condition_num(X), disconnected_nontrivial_pieces(A))
-  return (maximum(map(x -> x[1], rvals)),
-          minimum(map(x -> x[2], rvals)))
-end
-
-function nonzero_eigenvector_condition_num(A, d::Any=1.0)
-  vals,V = eig(full(A))
-  X = V[:,find(abs(vals) .>= 10*eps(1.0))] # get the non-null eigenvectors
-  return cond(d.*X) # row-wise scaling due to column-repetition
-end
-
-
-""" Get the gap between the k and k+1st non-zero normalized Laplacian eignenvalues. """
-function fiedler_gap(A,k; ratio=false)
-  if ratio
-    gapfun = x -> begin
-      if k==1
-        return (2-x[1])/2.0
-      else
-        return (2-x[k])/(2-x[k-1])
-      end
-    end
-  else
-    gapfun = x -> begin
-      if k==1
-        return x[1]
-      else
-        return x[k]-x[k-1]
-      end
-    end
-  end
-  mats = Motif.network_matrices(A)[1]
-  L = mats[:NormalizedLaplacian]
-  vals = Float64[]
-  gaps = Float64[]
-  for Lcc = disconnected_nontrivial_pieces(L)
-    Lcc_vals = eigvals!(full(L))[2:end]
-    push!(gaps, gapfun(Lcc_vals))
-    push!(vals, Lcc_vals...)
-  end
-  sort!(vals)
-  return gapfun(vals), minimum(gaps), vals
-end
-
-function conditioning_measures(mat)
-  mats,ops = Motif.network_matrices(mat)
-  dhalf = sqrt(vec(sum(mat,1)))
-
-  vals = Dict{Symbol,Float64}()
-
-  vals[:NormalizedLaplacian] = disconnected_condition_num(mats[:NormalizedLaplacian])
-  #vals[:NormalizedLaplacian] = cond(full(mats[:NormalizedLaplacian]))
-  vals[:CombinatorialLaplacian] = disconnected_condition_num(mats[:CombinatorialLaplacian])
-  vals[:WeightedAdjacency] = cond(full(mats[:WeightedAdjacency]))
-  vals[:Adjacency] = cond(full(mats[:WeightedAdjacency]))
-
-  kappaf, lam2 = disconnected_fiedler_condition_num(mat)
-  vals[:Fiedler] = kappaf
-  vals[:Lambda2] = lam2
-#
-#  vals[:NormalizedLaplacianEigenspace] = maximum(
-#    map((x,idhalf) -> nonzero_eigenvector_condition_num(x,idhalf),
-#    disconnected_nontrivial_pieces(mats[:NormalizedLaplacian], 1./dhalf)))
-
-  gap,cgap,evals = fiedler_gap(mat, 2; ratio=true)
-  vals[:ShiftedLaplacianRatio] = gap
-  vals[:InternalShiftedLaplacianRatio] = cgap
-
-  gap,cgap = fiedler_gap(mat, 2)
-  vals[:ShiftedLaplacianGap] = gap
-  vals[:InternalShiftedLaplacianGap] = cgap
-
-  vals[:NormalizedLambda2] = evals[1]
-  vals[:NormalizedLambda3] = evals[2]
-  vals[:NormalizedLambda4] = evals[3]
-  vals[:NormalizedLambda5] = evals[4]
-  vals[:NormalizedLambda6] = evals[5]
-  vals[:NormalizedLambda7] = evals[6]
-  vals[:NormalizedLambda8] = evals[7]
-  vals[:NormalizedLambda9] = evals[8]
-  vals[:NormalizedLambda10] = evals[9]
-  vals[:NormalizedLambda11] = evals[10]
-  vals[:NormalizedLambda12] = evals[11]
-  vals[:NormalizedLambda13] = evals[12]
-
-  vals[:ShiftedLaplacianRatio10] = evals[9]/evals[10]
-
-  return vals
-end
-
-m = 50
-k = 10
-p = 0.2
-q = 0.01
-A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
-@show conditioning_measures(A)
-##
+## Let's just show a random combination of eigenvectors
 m = 50
 k = 10
 p = 0.2
 srand(1)
+μ = 0.41
+A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
+M = (A*A).*A
+q = μ*p/((1-μ)*(k-1))
+
+LA = Motif.network_matrices(A)[1][:NormalizedLaplacian]
+LM = Motif.network_matrices(M)[1][:NormalizedLaplacian]
+
+XA = eigvecs(collect(LA))[:,2:10]
+XM = eigvecs(collect(LM))[:,2:10]
+
+pyplot(size=(1200,600))
+C = randn(9,1) # 3 random combinations
+C = C ./ sqrt(sum(C.^2, 1))
+plot(scatter(XA*C), scatter(XM*C), leg=false)
+gui()
+
+
+
+##
+# Show the eigenvectors
+plot(scatter(XA[:,1:3]), scatter(XM[:,1:3]), leg=false)
+gui()
+##
+# Show the eigenctors with smoothing
+pyplot(size=(400,400))
+plot(XA[:,1:3], xticks=0:50:500,yticks=[0],legend=false,background=false,border=:black,linewidth=0.5)
+for i=1:3
+  model = loess(collect(1.0:m*k), XA[:,i], span=0.1)
+  plot!(predict(model, collect(1.0:m*k)), color=i)
+end
+gui()
+savefig("eigenvector-localization-edges-$(m)-$(k)-$(p)-$(μ).pdf")
+
+##
+plot(XM[:,1:3], xticks=0:50:500,yticks=[0],legend=false,background=false,border=:black,linewidth=0.5)
+for i=1:3
+  model = loess(collect(1.0:m*k), XM[:,i], span=0.1)
+  plot!(predict(model, collect(1.0:m*k)), color=i)
+end
+gui()
+savefig("eigenvector-localization-motif-$(m)-$(k)-$(p)-$(μ).pdf")
+
+
+## This shows mostly what we want.
+
+## Let's do the test on random recovery
+m = 50
+k = 10
+p = 0.2
+srand(1)
+
+M = (A*A).*A
+
 npts = 100
 μs = linspace(0.1,0.8,npts)
-#ntrials = 1  # just use more points instead
-muvals = []
 
-vals_A = []
-vals_M = []
+ntrials = 50
+
+RA = zeros(npts, ntrials)
+RM = zeros(npts, ntrials)
+
+scorevec = x -> begin
+  perm = sortperm(vec(x))
+  return max(Motif.score_set(perm[1:m],m,k), Motif.score_set(perm[end-m+1:end],m,k))
+end
 
 for (i,μ) in enumerate(μs)
   q = μ*p/((1-μ)*(k-1))
@@ -169,8 +88,112 @@ for (i,μ) in enumerate(μs)
   A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
   M = (A*A).*A
 
-  push!(vals_A, conditioning_measures(A))
-  push!(vals_M, conditioning_measures(M))
+  dahalf = vec(sqrt(sum(A,1)))
+  dmhalf = vec(sqrt(sum(M,1)))
+
+  LA = Motif.network_matrices(A)[1][:NormalizedLaplacian]
+  LM = Motif.network_matrices(M)[1][:NormalizedLaplacian]
+
+  XA = eigvecs(collect(LA))[:,2:10]
+  XM = eigvecs(collect(LM))[:,2:10]
+
+  for t=1:ntrials
+
+    C = randn(9,1) # 3 random combinations
+    C = C ./ sqrt(sum(C.^2, 1))
+
+    xa = XA*C
+    xm = XM*C
+
+    RA[i,t] = scorevec(xa./dahalf)
+    RM[i,t] = scorevec(xm./dahalf)
+
+  end
+end
+
+##
+plot(μs, median(RA,2))
+plot!(μs, median(RM,2))
+gui()
+
+
+## These were some initial localizatin studies.
+
+m = 50
+k = 10
+p = 0.2
+srand(1)
+npts = 20
+μs = linspace(0.2,0.4,npts)
+#ntrials = 1  # just use more points instead
+muvals = []
+
+vals_A = []
+vals_M = []
+
+locA = []
+locM = []
+
+pyplot(size=(1600,800))
+
+for (i,μ) in enumerate(μs)
+  q = μ*p/((1-μ)*(k-1))
+
+  A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
+  M = (A*A).*A
+
+  LA = Motif.network_matrices(A)[1][:NormalizedLaplacian]
+  LM = Motif.network_matrices(M)[1][:NormalizedLaplacian]
+
+  XA = eigvecs(collect(LA))[:,2:10]
+  XM = eigvecs(collect(LM))[:,2:10]
+
+  prA = 1.0./sum(XA.^4,1)
+  prM = 1.0./sum(XM.^4,1)
+
+  push!(locA, prA)
+  push!(locM, prM)
+
+
+end
+
+plot(
+  heatmap(vcat(locA...), legend=false, yticks=[]),
+  heatmap(vcat(locM...), legend=false, yticks=[])
+)
+gui()
+##
+
+plot(μs, sum(vcat(locA...),2))
+plot!(μs, sum(vcat(locM...),2))
+gui()
+##
+
+for (i,μ) in enumerate(μs)
+  q = μ*p/((1-μ)*(k-1))
+
+  A,sets = Motif.symmetric_stochastic_block_model(m,k,p,q)
+  M = (A*A).*A
+
+  LA = Motif.network_matrices(A)[1][:NormalizedLaplacian]
+  LM = Motif.network_matrices(M)[1][:NormalizedLaplacian]
+
+  XA = eigvecs(collect(LA))[:,2:4]
+  XM = eigvecs(collect(LM))[:,2:4]
+
+  prA = 1.0./sum(XA.^4,1)
+  prM = 1.0./sum(XM.^4,1)
+  @show prA, sum(prA)
+  @show prM, sum(prM)
+
+
+  plot(
+    plot(XA, legend=false, yticks=[], ylim=[-0.3,0.3]),
+    plot(XM, legend=false, yticks=[], ylim=[-0.3,0.3])
+  )
+  gui()
+  sleep(0.5)
+
 end
 
 

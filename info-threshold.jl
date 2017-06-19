@@ -12,6 +12,10 @@ function thresh(m,k,p,q)
   t = (sqrt(a)-sqrt(b))^2/k
 end
 
+function thresh(m,k,p)
+  fzero(x -> thresh(m,k,p,x) - 1, [0.0, p])
+end
+
 thresh_mu(m,k,p,μ) = thresh(m,k,p,μ*p/((1-μ)*(k-1)))
 
 # Do bisection search to find the threshold in terms of our mixing parameter mu
@@ -34,6 +38,9 @@ function detect_thresh_snr(m,k,p,q)
   b = q*n
   snr = (a-b)^2/(k*(a + (k-1)*b))
 end
+
+detect_thresh_snr(m,k,p) = fzero( x -> detect_thresh_snr(m,k,p,x) - 1, [0.0, p] )
+
 
 detect_thresh_snr_mu(m,k,p,μ) = detect_thresh_snr(m,k,p,μ*p/((1-μ)*(k-1)))
 

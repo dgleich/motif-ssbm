@@ -11,11 +11,22 @@ include("info-threshold.jl")
 # * mu
 # * ntrials
 
+evec_approx(S,x) = begin
+  # compute the cosine of the angle after the iteration
+  y = S*x
+  return dot(x,y)/sqrt(dot(y,y)*dot(x,x))
+end
+
+cos_vector(x,y) = begin
+  return dot(x,y)/sqrt(dot(y,y)*dot(x,x))
+end
 
 # Here is one experiment for a given matrix
 function step_vecs_experiment(mat, m, k, nsteps)
   mats,ops = Motif.network_matrices(mat)
   dhalf = sqrt(vec(sum(mat,1)))
+  z = fiedler_vector(mat)
+
   S = ops[:ShiftedLaplacian]
 
   x0 = ones(size(mat,1))
@@ -29,8 +40,7 @@ function step_vecs_experiment(mat, m, k, nsteps)
 
     for j in findin(nsteps, step)
       # hopefully just one, so this shouldn't duplicate work, but we keep it simple!
-      perm = sortperm(vec(xstep)./dhalf)
-      result[j] = max(Motif.score_set(perm[1:m],m,k), Motif.score_set(perm[end-m+1:end],m,k))
+      result[j] = cos_vector(z, xstep./dhalf)
     end
   end
   return result
@@ -70,7 +80,7 @@ contour!(plt[1], map(x -> string(x), nsteps), # map matvecs to string
   collect(μs), squeeze(mean(accs_edge, 2),2),
   xlabel="matrix-vector products",
   ylabel="μ",
-  clims=(0.15,1), fill=true, levels=5, colorbar=false)
+  clims=(0.95,1), fill=true, levels=5, colorbar=false)
 contour!(plt[2], map(x -> string(x), nsteps),
   collect(μs), squeeze(mean(accs_motif, 2),2),
   xlabel="matrix-vector products",
@@ -80,7 +90,7 @@ hline!(plt[1], [thresh_mu(m,k,p), detect_thresh_mu(m,k,p)], legend=false, color=
 hline!(plt[2], [thresh_mu(m,k,p), detect_thresh_mu(m,k,p)], legend=false, color=:lightgreen)
 xaxis!(rotation=45)
 gui()
-savefig("powermethod-accuracy.pdf")
+#savefig("powermethod-accuracy-evec.pdf")
 
 ## Make a super-high matvec plot
 # What happens in the previous picture if we go for thousands of iterations?
