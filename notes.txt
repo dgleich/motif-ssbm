@@ -1,0 +1,5 @@
+This is a follow-up experiment on 02-21-motif-power-iterations for the NA conference
+in Strathclyde.
+
+I want to show some actual numerical analysis about convergence of various
+methods in light of the eigenvalue structure induced by the motifs.
